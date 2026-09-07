@@ -1,0 +1,22 @@
+model Project {
+    id String @id @default(uuid())
+
+    name        String
+    description String?
+    status      ProjectStatus @default(PLANNING)
+    startDate   DateTime?
+    endDate     DateTime?
+    isDeleted   Boolean       @default(false)
+    deletedAt   DateTime?
+    createdAt   DateTime      @default(now())
+    updatedAt   DateTime      @updatedAt
+
+    organizationId String
+    userId         String
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    user           User         @relation(fields: [userId], references: [id])
+    boards         Board[]
+    tasks          Task[]
+
+    @@index([organizationId])
+}

@@ -1,0 +1,13 @@
+model ActivityLog {
+    id             String   @id @default(uuid())
+    organizationId String
+    userId         String
+    action         String
+    details        String
+    createdAt      DateTime @default(now())
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    user         User         @relation(fields: [userId], references: [id])
+
+    @@index([organizationId])
+}

@@ -1,0 +1,11 @@
+model Board {
+    id        String   @id @default(uuid())
+    projectId String
+    name      String   @default("Main Board")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    
+    project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    columns   Column[]
+}
