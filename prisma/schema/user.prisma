@@ -1,21 +1,20 @@
 model User {
-  id              String               @id @default(uuid())
-  email           String               @unique
-  password        String?
-  name            String
-  avatar          String?
-  role            Role                 @default(MEMBER)
-  googleId        String?              @unique
-  isBanned        Boolean              @default(false)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+    id        String     @id @default(uuid())
+    email     String     @unique
+    password  String?
+    name      String
+    avatar    String?
+    role      Role       @default(MEMBER)
+    googleId  String?    @unique
+    status    userStatus @default(PENDING)
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
 
-
-  organizations   Organization[]
-  orgMemberships  OrganizationMember[]
-  teamMemberships TeamMember[]
-  projects        Project[]
-  tasks           Task[]
-  comments        Comment[]
-  activityLogs    ActivityLog[]
+    organizations   Organization[]
+    orgMemberships  OrganizationMember[]
+    teamMemberships TeamMember[]
+    projects        Project[]
+    tasks           Task[]
+    comments        Comment[]
+    activityLogs    ActivityLog[]
 }

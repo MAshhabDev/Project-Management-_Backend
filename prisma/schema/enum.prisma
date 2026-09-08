@@ -24,3 +24,9 @@ enum TaskPriority {
     HIGH
     URGENT
 }
+
+enum userStatus{
+    ACTIVE
+    BLOCKED
+    PENDING
+}
