@@ -24,6 +24,14 @@ const RegisterZodSchema = z.object({
   avatar: z.string().url("Avatar must be a valid URL").optional(),
 });
 
+// 2. Email OTP Verification Validation Schema
+const VerifyEmailZodSchema = z.object({
+  email: z.email("Invalid email address format"),
+  otp: z
+    .string("OTP is required")
+    .length(6, "OTP must be exactly 6 digits long"),
+});
+
 // 2. User Login Validation Schema
 const LoginZodSchema = z.object({
   email: z.email("Invalid email address format"),
@@ -57,10 +65,26 @@ const ChangePasswordZodSchema = z.object({
     ),
 });
 
+const ForgotPasswordZodSchema = z.object({
+  email: z
+    .email("Invalid email address format"),
+});
+
+const ResetPasswordZodSchema = z.object({
+  email: z.email("Invalid email address format"),
+  otp: z
+    .string("OTP is required")
+    .length(6, "OTP must be exactly 6 digits long"),
+  newPassword: z
+    .string("New password is required")
+    .min(6, "New password must be at least 6 characters long"),
+});
+
 export const UserValidation = {
   RegisterZodSchema,
+  VerifyEmailZodSchema,
   LoginZodSchema,
   RefreshTokenZodSchema,
-  UpdateProfileZodSchema,
-  ChangePasswordZodSchema,
+  ForgotPasswordZodSchema,
+  ResetPasswordZodSchema,
 };
