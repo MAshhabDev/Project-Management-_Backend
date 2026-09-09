@@ -13,3 +13,7 @@ export interface ICreate {
   phone: string;
   address?: string;
 }
+
+export interface IGoogleLoginPayload {
+	idToken: string;
+}

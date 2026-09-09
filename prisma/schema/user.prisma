@@ -1,14 +1,18 @@
 model User {
-    id        String     @id @default(uuid())
-    email     String     @unique
-    password  String?
-    name      String
-    avatar    String?
-    role      Role       @default(MEMBER)
-    googleId  String?    @unique
-    status    userStatus @default(PENDING)
-    createdAt DateTime   @default(now())
-    updatedAt DateTime   @updatedAt
+    id            String       @id @default(uuid())
+    email         String       @unique
+    password      String?
+    name          String
+    imageUrl      String       @default("")
+    imagePublicId String       @default("")
+    role          Role         @default(MEMBER)
+    googleId      String?      @unique
+    emailVerified Boolean      @default(false)
+    authProvider  AuthProvider @default(CREDENTIAL)
+    status        UserStatus   @default(ACTIVE)
+    createdAt     DateTime     @default(now())
+    updatedAt     DateTime     @updatedAt
+    needPasswordChange Boolean @default(false)
 
     organizations   Organization[]
     orgMemberships  OrganizationMember[]

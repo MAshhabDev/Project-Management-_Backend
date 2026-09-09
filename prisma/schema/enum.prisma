@@ -25,8 +25,14 @@ enum TaskPriority {
     URGENT
 }
 
-enum userStatus{
-    ACTIVE
-    BLOCKED
-    PENDING
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
+
+enum AuthProvider{
+    CREDENTIAL
+    GOOGLE
 }
