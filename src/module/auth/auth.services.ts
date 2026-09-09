@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions, type JwtPayload } from "jsonwebtoken";
-import type { ICreate, IGoogleLoginPayload, ILogin } from "./auth.interface";
+import type { ICreate, IGoogleLoginPayload, ILogin, IVerifyEmailPayload } from "./auth.interface";
 import { jwtUtils } from "../../utils/jwt";
 import type { TokenPayload } from "google-auth-library";
 import { googleClient } from "../../lib/googlrAuth";
@@ -89,6 +89,110 @@ const createUser = async (payload: ICreate) => {
     // html: `<h1>Your OTP is ${otp}</h1>`
     html,
   });
+};
+
+const verifyEmail = async (payload: IVerifyEmailPayload) => {
+  const otp = payload.otp;
+  const email = payload.email.trim().toLowerCase();
+
+  const isUserExist = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (isUserExist?.status === "BLOCKED") {
+    throw new AppError(httpStatus.FORBIDDEN, "User is Blocked");
+  }
+
+  if (isUserExist?.emailVerified) {
+    throw new AppError(httpStatus.CONFLICT, "Email ALready Verified");
+  }
+
+  if (isUserExist?.status === "DELETED") {
+    throw new AppError(httpStatus.FORBIDDEN, "User is Deleted");
+  }
+
+  const otpKey = `registration-otp:${email}`;
+  const redisOtp = await redisClient.get(otpKey);
+
+  if (!redisOtp) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid OTP");
+  }
+
+  if (redisOtp !== otp) {
+    throw new AppError(httpStatus.BAD_REQUEST, "OTP Does Not Match");
+  }
+
+  await redisClient.del(otpKey);
+
+  const registrationKey = `registration-data:${email}`;
+
+  const redisPatientData = await redisClient.get(registrationKey);
+
+  if (!redisPatientData) {
+    throw new AppError(httpStatus.NOT_FOUND, "Patient Does not Exist");
+  }
+
+  const userPayload: ICreate = JSON.parse(redisPatientData);
+
+  const createdUser = await prisma.user.create({
+    data: {
+      name: userPayload.name,
+      email: userPayload.email,
+      password: userPayload.password,
+      role: Role.MEMBER,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+    },
+    omit: { password: true },
+  });
+
+  await redisClient.del(registrationKey);
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/patient-welcome-email.ejs",
+  );
+
+  const templateData = {
+    name: createdUser.name,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: email,
+    subject: "Welcome To PH Healthcare System",
+    // text : `Your OTP is ${otp}`
+    // html: `<h1>Your OTP is ${otp}</h1>`
+    html,
+  });
+
+  const { ...user } = createdUser;
+  const jwtPayload = {
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_access_secret,
+    config.jwt_access_expires_in as SignOptions,
+  );
+
+  const refreshToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_refresh_secret,
+    config.jwt_refresh_expires_in as SignOptions,
+  );
+
+  return {
+    user,
+    accessToken,
+    refreshToken,
+  };
 };
 
 const logInUser = async (payload: ILogin) => {

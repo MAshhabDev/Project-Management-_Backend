@@ -17,3 +17,7 @@ export interface ICreate {
 export interface IGoogleLoginPayload {
 	idToken: string;
 }
+export interface IVerifyEmailPayload {
+	email: string;
+	otp: string;
+}
