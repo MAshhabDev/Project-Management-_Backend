@@ -16,6 +16,8 @@ import httpStatus from "http-status";
 import config from "../../config";
 import { transporter } from "../../lib/nodemailer";
 import ejs from "ejs";
+import crypto from "crypto";
+import { redisClient } from "../../lib/redis";
 
 const createUser = async (payload: ICreate) => {
   const { name, email, password, role } = payload;
@@ -27,7 +29,10 @@ const createUser = async (payload: ICreate) => {
   });
 
   if (userExist) {
-    throw new Error("User Already Exist");
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "User with this email already exists",
+    );
   }
 
   const hashPass = await bcrypt.hash(
@@ -35,35 +40,59 @@ const createUser = async (payload: ICreate) => {
     Number(config.bcrypt_salt_rounds),
   );
 
-  const createUser = await prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hashPass,
-      role,
+  const expirationSeconds = 5 * 60;
+
+  const otpKey = `registration-otp:${email}`;
+  const otpValue = crypto.randomInt(100000, 1000000).toString();
+
+  await redisClient.set(otpKey, otpValue, {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
     },
   });
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id: createUser.id,
-      email: createUser.email,
-    },
+  const userRegistrationKey = `registration-data:${email}`;
 
-    omit: {
-      password: true,
+  const redisPayload = {
+    name,
+    email,
+    password: hashPass,
+  };
+
+  await redisClient.set(userRegistrationKey, JSON.stringify(redisPayload), {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
     },
   });
 
-  return user;
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/register-user-otp.ejs",
+  );
+
+  const templateData = {
+    name,
+    email,
+    otp: otpValue,
+    expirationMinutes: expirationSeconds / 60,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: email,
+    subject: "Email Verification",
+    // text : `Your OTP is ${otp}`
+    // html: `<h1>Your OTP is ${otp}</h1>`
+    html,
+  });
 };
 
 const logInUser = async (payload: ILogin) => {
   const { email, password } = payload;
-
-  if (!email || !password) {
-    throw new Error("Email and password are required!");
-  }
 
   const user = await prisma.user.findUnique({
     where: {
@@ -75,14 +104,25 @@ const logInUser = async (payload: ILogin) => {
     throw new Error("Did not find user for this email");
   }
 
+  if (user.status === UserStatus.DELETED) {
+    throw new AppError(httpStatus.FORBIDDEN, "User is deleted");
+  }
+
+  if (user.password === null && user.googleId !== null) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "User Already Has Account Registered With Google. Try To Login With Google.",
+    );
+  }
+
   const matchPass = await bcrypt.compare(password, user.password!);
 
   if (!matchPass) {
-    throw new Error("Did not match the password");
+    throw new AppError(httpStatus.UNAUTHORIZED, "Invalid credentials");
   }
 
   const jwtPayload = {
-    id: user.id,
+    userId: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
@@ -224,7 +264,7 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 
     const templatePath = path.join(
       process.cwd(),
-      "src/app/templates/patient-welcome-email.ejs",
+      "src/app/templates/welcome-email.ejs",
     );
 
     const templateData = {
@@ -236,7 +276,7 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
     await transporter.sendMail({
       from: config.email_sender,
       to: user.email,
-      subject: "Welcome To PH Healthcare System",
+      subject: "Welcome To Project Management System",
       // text : `Your OTP is ${otp}`
       // html: `<h1>Your OTP is ${otp}</h1>`
       html,
