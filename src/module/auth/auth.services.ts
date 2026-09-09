@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions, type JwtPayload } from "jsonwebtoken";
-import type { ICreate, IGoogleLoginPayload, ILogin, IVerifyEmailPayload } from "./auth.interface";
+import type { ICreate, IForgotPasswordPayload, IGoogleLoginPayload, ILogin, IVerifyEmailPayload } from "./auth.interface";
 import { jwtUtils } from "../../utils/jwt";
 import type { TokenPayload } from "google-auth-library";
 import { googleClient } from "../../lib/googlrAuth";
@@ -126,13 +126,13 @@ const verifyEmail = async (payload: IVerifyEmailPayload) => {
 
   const registrationKey = `registration-data:${email}`;
 
-  const redisPatientData = await redisClient.get(registrationKey);
+  const redisData = await redisClient.get(registrationKey);
 
-  if (!redisPatientData) {
-    throw new AppError(httpStatus.NOT_FOUND, "Patient Does not Exist");
+  if (!redisData) {
+    throw new AppError(httpStatus.NOT_FOUND, "User Does not Exist");
   }
 
-  const userPayload: ICreate = JSON.parse(redisPatientData);
+  const userPayload: ICreate = JSON.parse(redisData);
 
   const createdUser = await prisma.user.create({
     data: {
@@ -150,7 +150,7 @@ const verifyEmail = async (payload: IVerifyEmailPayload) => {
 
   const templatePath = path.join(
     process.cwd(),
-    "src/app/templates/patient-welcome-email.ejs",
+    "src/app/templates/welcome-email.ejs",
   );
 
   const templateData = {
@@ -162,7 +162,7 @@ const verifyEmail = async (payload: IVerifyEmailPayload) => {
   await transporter.sendMail({
     from: config.email_sender,
     to: email,
-    subject: "Welcome To PH Healthcare System",
+    subject: "Welcome To Project Management System",
     // text : `Your OTP is ${otp}`
     // html: `<h1>Your OTP is ${otp}</h1>`
     html,
@@ -423,5 +423,72 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
     refreshToken,
   };
 };
+
+
+const forgotPassword=async(payload: IForgotPasswordPayload)=>{
+
+  const {email}=payload
+
+  const isUserExist = await prisma.user.findUnique({
+		where: {
+			email,
+		},
+	});
+
+	if (!isUserExist) {
+		throw new AppError(httpStatus.NOT_FOUND, "User Does Not Exist!");
+	}
+
+	if (isUserExist.status === "BLOCKED") {
+		throw new AppError(httpStatus.FORBIDDEN, "User is Blocked");
+	}
+
+	if (!isUserExist.emailVerified) {
+		throw new AppError(httpStatus.FORBIDDEN, "User Not Verified");
+	}
+
+	if (isUserExist.status === "DELETED") {
+		throw new AppError(httpStatus.FORBIDDEN, "User is Deleted");
+	}
+
+	if (isUserExist.googleId && isUserExist.authProvider === "GOOGLE") {
+		throw new AppError(httpStatus.BAD_REQUEST, "User Has Account With Google");
+	}
+
+
+  const otp = crypto.randomInt(100000, 1000000).toString();
+
+	const key = `forgot-password-otp:${isUserExist.email}`;
+  	const expirationSeconds = 5 * 60;
+
+await redisClient.set(key, otp, {
+		expiration: {
+			type: "EX",
+			value: expirationSeconds,
+		},
+	});
+
+  const templatePath = path.join(
+		process.cwd(),
+		"src/app/templates/forgot-password.ejs",
+	);
+
+	const templateData = {
+		name: isUserExist.name,
+		otp,
+		expirationMinutes: expirationSeconds / 60,
+	};
+
+	const html = await ejs.renderFile(templatePath, templateData);
+
+	await transporter.sendMail({
+		from: config.email_sender,
+		to: isUserExist.email,
+		subject: "Forgot Password",
+		// text : `Your OTP is ${otp}`
+		// html: `<h1>Your OTP is ${otp}</h1>`
+		html,
+	});
+}
 
 export const authService = { createUser, refreshTokenIntoDb, logInUser, getMe };
