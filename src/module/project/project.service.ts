@@ -2,7 +2,8 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import httpStatus from "http-status";
 import { Role, UserStatus } from "../../../generated/prisma/enums";
-import { ICreateProject } from "./project.interface";
+import { ICreateProject, type IProjectFilterQuery } from "./project.interface";
+import type { Prisma } from "../../../generated/prisma/browser";
 
 const createProject = async (userId: string, payload: ICreateProject) => {
   const { organizationId, name, description, startDate, endDate } = payload;
@@ -39,7 +40,6 @@ const createProject = async (userId: string, payload: ICreateProject) => {
     );
   }
 
-
   const result = await prisma.$transaction(async (tx) => {
     const project = await tx.project.create({
       data: {
@@ -51,7 +51,6 @@ const createProject = async (userId: string, payload: ICreateProject) => {
         endDate: endDate ? new Date(endDate) : undefined,
       },
     });
-
 
     const board = await tx.board.create({
       data: {
@@ -75,9 +74,83 @@ const createProject = async (userId: string, payload: ICreateProject) => {
   return result;
 };
 
+const getAllProjects = async (userId: string, query: IProjectFilterQuery) => {
+  const page = Number(query.page) || 1;
+
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+  const { searchTerm, status, organizationId, sortBy, sortOrder } = query;
+
+  const whereConditions: Prisma.ProjectWhereInput = {
+    isDeleted: false,
+    organization: {
+      members: {
+        some: { userId },
+      },
+    },
+  };
+
+  // Search Filter (by Name or Description)
+  if (searchTerm) {
+    whereConditions.OR = [
+      { name: { contains: searchTerm, mode: "insensitive" } },
+      { description: { contains: searchTerm, mode: "insensitive" } },
+    ];
+  }
+  // Status Filter
+  if (status) {
+    whereConditions.status = status;
+  }
+
+  // Organization Filter 
+  if (organizationId) {
+    whereConditions.organizationId = organizationId;
+  }
+
+  // Fetch Projects with Pagination & Sorting
+  const projects = await prisma.project.findMany({
+    where: whereConditions,
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy || "createdAt"]: sortOrder || "desc",
+    },
+    include: {
+      organization: {
+        select: { id: true, name: true, slug: true },
+      },
+      user: {
+        select: { id: true, name: true, email: true, avatar: true },
+      },
+      boards: {
+        include: {
+          columns: {
+            include: {
+              tasks: {
+                where: { isDeleted: false },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const total = await prisma.project.count({ where: whereConditions });
 
 
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: projects,
+  };
+};
 
 export const projectService = {
   createProject,
+  getAllProjects
 };

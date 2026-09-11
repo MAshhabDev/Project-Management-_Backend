@@ -14,4 +14,11 @@ router.post(
   projectController.createProject,
 );
 
+router.get(
+  '/',
+  auth(),
+  projectController.getAllProjects
+);
+
 export const projectRoutes = router;
+
