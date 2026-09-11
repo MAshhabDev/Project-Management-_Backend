@@ -1,8 +1,8 @@
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import httpStatus from "http-status";
-import { UserStatus } from "../../../generated/prisma/enums";
-import { ICreateTask } from "./task.interface";
+import { Role, UserStatus } from "../../../generated/prisma/enums";
+import { ICreateTask, type IUpdateTaskStatus } from "./task.interface";
 
 const createTask = async (creatorUserId: string, payload: ICreateTask) => {
   const {
@@ -102,6 +102,124 @@ const createTask = async (creatorUserId: string, payload: ICreateTask) => {
   return result;
 };
 
+const updateTaskStatus = async (taskId: string, userId: string, payload: IUpdateTaskStatus) => {
+  const { columnId, status } = payload;
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          organization: {
+            include: { members: true },
+          },
+        },
+      },
+      column: true,
+    },
+  });
+  if (!task || task.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Task not found');
+  }
+
+
+  const isMember = task.project.organization.members.some((m) => m.userId === userId);
+  if (!isMember) {
+    throw new AppError(httpStatus.FORBIDDEN, 'Access denied. You are not a member of this organization');
+  }
+
+
+  const targetColumn = await prisma.column.findUnique({
+    where: { id: columnId },
+  });
+  if (!targetColumn) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Target Kanban Column not found');
+  }
+  const oldStatus = task.status;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedTask = await tx.task.update({
+      where: { id: taskId },
+      data: {
+        columnId,
+        status,
+      },
+    });
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: task.project.organizationId,
+        taskId: task.id,
+        userId: userId,
+        action: 'TASK_STATUS_UPDATED',
+        details: `Moved task '${task.title}' status from ${oldStatus} to ${status} (Column: ${targetColumn.title})`,
+      },
+    });
+    return updatedTask;
+  });
+  return result;
+};
+
+const softDeleteTask = async (taskId: string, userId: string) => {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          organization: {
+            include: { members: true },
+          },
+        },
+      },
+    },
+  });
+  if (!task || task.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Task not found or already deleted');
+  }
+
+  const requesterMember = task.project.organization.members.find((m) => m.userId === userId);
+ 
+  const isOwnerOrManager =
+    requesterMember &&
+    (requesterMember.role === Role.MANAGER || task.project.organization.ownerId === userId);
+  
+  
+    const isCreator = task.userId === userId;
+ 
+ 
+  if (!isOwnerOrManager && !isCreator) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'Only Organization Owner, Manager, or Task Creator can delete this task'
+    );
+  }
+ 
+  const result = await prisma.$transaction(async (tx) => {
+    const deletedTask = await tx.task.update({
+      where: { id: taskId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+      },
+    });
+
+    await tx.activityLog.create({
+      data: {
+        organizationId: task.project.organizationId,
+        taskId: task.id,
+        userId: userId,
+        action: 'TASK_DELETED',
+        details: `Soft deleted task '${task.title}'`,
+      },
+    });
+    return deletedTask;
+  });
+  return result;
+};
+
+
 export const taskService = {
   createTask,
+  updateTaskStatus,
+  softDeleteTask
 };
