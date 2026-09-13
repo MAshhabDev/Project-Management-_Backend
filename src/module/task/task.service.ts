@@ -2,7 +2,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import httpStatus from "http-status";
 import { Role, UserStatus } from "../../../generated/prisma/enums";
-import { ICreateTask, type IUpdateTaskStatus } from "./task.interface";
+import { ICreateTask, type IAddComment, type IUpdateTaskStatus } from "./task.interface";
 
 const createTask = async (creatorUserId: string, payload: ICreateTask) => {
   const {
@@ -85,7 +85,6 @@ const createTask = async (creatorUserId: string, payload: ICreateTask) => {
       },
     });
 
-
     await tx.activityLog.create({
       data: {
         organizationId: project.organizationId,
@@ -102,7 +101,11 @@ const createTask = async (creatorUserId: string, payload: ICreateTask) => {
   return result;
 };
 
-const updateTaskStatus = async (taskId: string, userId: string, payload: IUpdateTaskStatus) => {
+const updateTaskStatus = async (
+  taskId: string,
+  userId: string,
+  payload: IUpdateTaskStatus,
+) => {
   const { columnId, status } = payload;
 
   const task = await prisma.task.findUnique({
@@ -119,21 +122,24 @@ const updateTaskStatus = async (taskId: string, userId: string, payload: IUpdate
     },
   });
   if (!task || task.isDeleted) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Task not found');
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
   }
 
-
-  const isMember = task.project.organization.members.some((m) => m.userId === userId);
+  const isMember = task.project.organization.members.some(
+    (m) => m.userId === userId,
+  );
   if (!isMember) {
-    throw new AppError(httpStatus.FORBIDDEN, 'Access denied. You are not a member of this organization');
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Access denied. You are not a member of this organization",
+    );
   }
-
 
   const targetColumn = await prisma.column.findUnique({
     where: { id: columnId },
   });
   if (!targetColumn) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Target Kanban Column not found');
+    throw new AppError(httpStatus.NOT_FOUND, "Target Kanban Column not found");
   }
   const oldStatus = task.status;
 
@@ -151,7 +157,7 @@ const updateTaskStatus = async (taskId: string, userId: string, payload: IUpdate
         organizationId: task.project.organizationId,
         taskId: task.id,
         userId: userId,
-        action: 'TASK_STATUS_UPDATED',
+        action: "TASK_STATUS_UPDATED",
         details: `Moved task '${task.title}' status from ${oldStatus} to ${status} (Column: ${targetColumn.title})`,
       },
     });
@@ -174,26 +180,30 @@ const softDeleteTask = async (taskId: string, userId: string) => {
     },
   });
   if (!task || task.isDeleted) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Task not found or already deleted');
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "Task not found or already deleted",
+    );
   }
 
-  const requesterMember = task.project.organization.members.find((m) => m.userId === userId);
- 
+  const requesterMember = task.project.organization.members.find(
+    (m) => m.userId === userId,
+  );
+
   const isOwnerOrManager =
     requesterMember &&
-    (requesterMember.role === Role.MANAGER || task.project.organization.ownerId === userId);
-  
-  
-    const isCreator = task.userId === userId;
- 
- 
+    (requesterMember.role === Role.MANAGER ||
+      task.project.organization.ownerId === userId);
+
+  const isCreator = task.userId === userId;
+
   if (!isOwnerOrManager && !isCreator) {
     throw new AppError(
       httpStatus.FORBIDDEN,
-      'Only Organization Owner, Manager, or Task Creator can delete this task'
+      "Only Organization Owner, Manager, or Task Creator can delete this task",
     );
   }
- 
+
   const result = await prisma.$transaction(async (tx) => {
     const deletedTask = await tx.task.update({
       where: { id: taskId },
@@ -208,7 +218,7 @@ const softDeleteTask = async (taskId: string, userId: string) => {
         organizationId: task.project.organizationId,
         taskId: task.id,
         userId: userId,
-        action: 'TASK_DELETED',
+        action: "TASK_DELETED",
         details: `Soft deleted task '${task.title}'`,
       },
     });
@@ -217,9 +227,103 @@ const softDeleteTask = async (taskId: string, userId: string) => {
   return result;
 };
 
+const addComment = async (
+  taskId: string,
+  userId: string,
+  payload: IAddComment,
+) => {
+  const { content } = payload;
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          organization: {
+            include: { members: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!task || task.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
+  }
+
+  const isMember = task.project.organization.members.some(
+    (m) => m.userId === userId,
+  );
+
+  if (!isMember) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Access denied. You are not a member of this organization",
+    );
+  }
+
+
+  const comment = await prisma.comment.create({
+    data: {
+      taskId,
+      userId,
+      content,
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, avatar: true },
+      },
+    },
+  });
+  return comment;
+};
+
+
+const getTaskActivityLogs = async (taskId: string, userId: string) => {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          organization: {
+            include: { members: true },
+          },
+        },
+      },
+    },
+  });
+  if (!task || task.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, "Task not found");
+  }
+
+
+  const isMember = task.project.organization.members.some(
+    (m) => m.userId === userId,
+  );
+
+  if (!isMember) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Access denied. You are not a member of this organization",
+    );
+  }
+
+  const logs = await prisma.activityLog.findMany({
+    where: { organizationId: task.project.organizationId},
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, avatar: true },
+      },
+    },
+  });
+  return logs;
+};
 
 export const taskService = {
   createTask,
   updateTaskStatus,
-  softDeleteTask
+  softDeleteTask,
+  getTaskActivityLogs,
+  addComment
 };

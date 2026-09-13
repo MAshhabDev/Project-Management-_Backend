@@ -20,6 +20,20 @@ router.patch(
   taskController.updateTaskStatus,
 );
 
+router.post(
+  '/:id/comments',
+  auth(),
+  validateRequest(TaskValidation.AddCommentZodSchema),
+  taskController.addComment
+);
+
+
+router.get(
+  '/:id/activity-logs',
+  auth(),
+  taskController.getTaskActivityLogs
+);
+
 router.delete("/:id", auth(), taskController.softDeleteTask);
 
 export const taskRoutes = router;
