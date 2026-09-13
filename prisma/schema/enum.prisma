@@ -36,3 +36,9 @@ enum AuthProvider{
     CREDENTIAL
     GOOGLE
 }
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}

@@ -13,4 +13,7 @@ model Organization {
   teams        Team[]
   projects     Project[]
   activityLogs ActivityLog[]
+
+   payments  Payment[]
+  
 }
