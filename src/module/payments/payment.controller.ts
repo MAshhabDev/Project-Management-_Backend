@@ -20,6 +20,24 @@ const initiateBkashPayment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
+
+const handleBkashCallbackController = catchAsync(
+  async (req: Request, res: Response) => {
+    const { paymentID, status } = req.query;
+    const result = await paymentService.handleBkashCallback(
+      paymentID as string,
+      status as string
+    );
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    });
+  }
+);
+
 export const paymentController = {
   initiateBkashPayment,
 };

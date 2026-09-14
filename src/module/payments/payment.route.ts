@@ -13,4 +13,6 @@ router.post(
   paymentController.initiateBkashPayment,
 );
 
+router.get("/bkash/callback", paymentController.handleBkashCallbackController);
+
 export const paymentRoutes = router;

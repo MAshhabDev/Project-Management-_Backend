@@ -102,6 +102,76 @@ const initiateBkashPayment = async (
   }
 };
 
+
+
+ 
+const handleBkashCallback = async (paymentID: string, status: string) => {
+  if (!paymentID || !status) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Invalid callback parameters. paymentID and status are required."
+    );
+  }
+  const paymentLog = await prisma.payment.findUnique({
+    where: { transactionId: paymentID },
+  });
+  if (!paymentLog) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "Payment transaction record not found"
+    );
+  }
+  if (status === "cancel" || status === "failure") {
+    const updatedLog = await prisma.payment.update({
+      where: { id: paymentLog.id },
+      data: { status: PaymentStatus.FAILED },
+    });
+    return {
+      success: false,
+      message: `Payment was ${status === "cancel" ? "cancelled" : "failed"} by the user`,
+      data: updatedLog,
+    };
+  }
+  if (status === "success") {
+    const idToken = await getBkashIdToken();
+    const bkashResponse = await fetch(
+      `${config.bkash_base_url}/tokenized/checkout/execute`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: idToken,
+          "X-APP-Key": config.bkash_app_key as string,
+        },
+        body: JSON.stringify({ paymentID }),
+      }
+    );
+    const bkashData = await bkashResponse.json();
+    if (bkashData && bkashData.statusCode === "0000") {
+      const updatedLog = await prisma.payment.update({
+        where: { id: paymentLog.id },
+        data: { status: PaymentStatus.SUCCESS },
+      });
+      return {
+        success: true,
+        message: "Payment executed and verified successfully",
+        data: updatedLog,
+      };
+    } else {
+      await prisma.payment.update({
+        where: { id: paymentLog.id },
+        data: { status: PaymentStatus.FAILED },
+      });
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        bkashData.statusMessage || "Payment execution failed"
+      );
+    }
+  }
+  throw new AppError(httpStatus.BAD_REQUEST, "Invalid payment status received");
+};
+
 export const paymentService = {
   initiateBkashPayment,
 };
