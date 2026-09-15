@@ -5,6 +5,72 @@ import httpStatus from "http-status";
 import { IBkashInitiatePayload } from "./payment.interface";
 import config from "../../config";
 import { PaymentStatus } from "../../../generated/prisma/enums";
+import PDFDocument from "pdfkit";
+import { transporter } from "../../lib/nodemailer";
+
+const sendInvoiceEmail = async (
+  recipientEmail: string,
+  paymentDetails: {
+    transactionId: string;
+    amount: number;
+    currency: string;
+    organizationName: string;
+    paidAt: Date;
+  },
+) => {
+  try {
+    const pdfDocument = new PDFDocument({ margin: 50 });
+
+    const pdfChunks: Buffer[] = [];
+
+    pdfDocument.on("data", (chunk: Buffer) => pdfChunks.push(chunk));
+
+    const pdfReadyPromise = new Promise<Buffer>((resolve) => {
+      
+      pdfDocument.on("end", () => resolve(Buffer.concat(pdfChunks)));
+    });
+
+    pdfDocument
+      .fontSize(20)
+      .text("Project Management SaaS", { align: "center" });
+    pdfDocument
+      .fontSize(14)
+      .text("Official Payment Receipt", { align: "center" });
+    pdfDocument.moveDown(2);
+    pdfDocument
+      .fontSize(12)
+      .text(`Organization: ${paymentDetails.organizationName}`);
+    pdfDocument.text(`Customer Email: ${recipientEmail}`);
+    pdfDocument.moveDown();
+    pdfDocument.text(`Transaction ID: ${paymentDetails.transactionId}`);
+    pdfDocument.text(
+      `Amount Paid: ${paymentDetails.amount} ${paymentDetails.currency}`,
+    );
+    pdfDocument.text(`Payment Method: bKash`);
+    pdfDocument.text(`Date & Time: ${paymentDetails.paidAt.toLocaleString()}`);
+    pdfDocument.moveDown(2);
+    pdfDocument
+      .fontSize(10)
+      .text("Thank you for staying with us!", { align: "center" });
+    pdfDocument.end();
+    const pdfBuffer = await pdfReadyPromise;
+
+    await transporter.sendMail({
+      from: config.email_sender,
+      to: recipientEmail,
+      subject: `Payment Invoice - ${paymentDetails.organizationName}`,
+      text: `Hello,\n\nThank you for your payment of ${paymentDetails.amount} ${paymentDetails.currency} for ${paymentDetails.organizationName}.\nPlease find your official PDF invoice attached.\n\nBest regards,\nProject Management SaaS Team`,
+      attachments: [
+        {
+          filename: `Invoice_${paymentDetails.transactionId}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Failed to send invoice email:", error);
+  }
+};
 
 const initiateBkashPayment = async (
   userId: string,
@@ -33,8 +99,11 @@ const initiateBkashPayment = async (
   const idToken = await getBkashIdToken();
 
   if (!idToken) {
-  throw new AppError(httpStatus.UNAUTHORIZED, "Failed to retrieve bKash Token");
-}
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      "Failed to retrieve bKash Token",
+    );
+  }
 
   try {
     const bkashResponse = await fetch(
@@ -60,12 +129,16 @@ const initiateBkashPayment = async (
     );
 
     if (!bkashResponse.ok) {
-      throw new AppError(httpStatus.BAD_GATEWAY, "bKash Payment Creation HTTP Error");
+      throw new AppError(
+        httpStatus.BAD_GATEWAY,
+        "bKash Payment Creation HTTP Error",
+      );
     }
 
     const bkashCreatePaymentResult = await bkashResponse.json();
 
-    const { statusCode, statusMessage, paymentID, bkashURL } = bkashCreatePaymentResult;
+    const { statusCode, statusMessage, paymentID, bkashURL } =
+      bkashCreatePaymentResult;
 
     if (statusCode !== "0000") {
       throw new AppError(
@@ -74,8 +147,6 @@ const initiateBkashPayment = async (
       );
     }
 
-
-
     await prisma.payment.create({
       data: {
         organizationId,
@@ -83,7 +154,7 @@ const initiateBkashPayment = async (
         currency: "BDT",
         paymentMethod: "bKash",
         status: PaymentStatus.PENDING,
-        transactionId: paymentID, 
+        transactionId: paymentID,
       },
     });
 
@@ -102,23 +173,106 @@ const initiateBkashPayment = async (
   }
 };
 
+const executeBkashPayment = async (userId: string, paymentID: string) => {
+  if (!paymentID) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Payment ID is required");
+  }
+  const paymentLog = await prisma.payment.findUnique({
+    where: { transactionId: paymentID },
+  });
 
+  if (!paymentLog) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "Payment transaction record not found",
+    );
+  }
+  if (paymentLog.status === PaymentStatus.SUCCESS) {
+    return {
+      success: true,
+      message: "Payment was already executed successfully",
+      data: paymentLog,
+    };
+  }
+  const idToken = await getBkashIdToken();
 
- 
+  if (!idToken) {
+    throw new AppError(httpStatus.BAD_GATEWAY, "No Bkash Access Token Found!");
+  }
+
+  const bkashResponse = await fetch(
+    `${config.bkash_base_url}/tokenized/checkout/execute`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: idToken,
+        "X-APP-Key": config.bkash_app_key,
+      },
+      body: JSON.stringify({
+        paymentID,
+      }),
+    },
+  );
+
+  const bkashData = await bkashResponse.json();
+
+  if (bkashData && bkashData.statusCode === "0000") {
+    const updatedLog = await prisma.payment.update({
+      where: {
+        id: paymentLog.id,
+      },
+      data: {
+        status: PaymentStatus.SUCCESS,
+      },
+      include: { organization: true },
+    });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (user?.email && updatedLog.organization) {
+      sendInvoiceEmail(user.email, {
+        transactionId: updatedLog.transactionId,
+        amount: updatedLog.amount,
+        currency: updatedLog.currency,
+        organizationName: updatedLog.organization.name,
+        paidAt: new Date(),
+      });
+    }
+
+    return {
+      success: true,
+      message: "Payment executed successfully",
+      data: updatedLog,
+    };
+  } else {
+    await prisma.payment.update({
+      where: { id: paymentLog.id },
+      data: { status: PaymentStatus.FAILED },
+    });
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      bkashData.statusMessage || "bKash Payment execution failed",
+    );
+  }
+};
+
 const handleBkashCallback = async (paymentID: string, status: string) => {
   if (!paymentID || !status) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Invalid callback parameters. paymentID and status are required."
+      "Invalid callback parameters. paymentID and status are required.",
     );
   }
   const paymentLog = await prisma.payment.findUnique({
     where: { transactionId: paymentID },
   });
+
   if (!paymentLog) {
     throw new AppError(
       httpStatus.NOT_FOUND,
-      "Payment transaction record not found"
+      "Payment transaction record not found",
     );
   }
   if (status === "cancel" || status === "failure") {
@@ -126,14 +280,23 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
       where: { id: paymentLog.id },
       data: { status: PaymentStatus.FAILED },
     });
+
     return {
       success: false,
       message: `Payment was ${status === "cancel" ? "cancelled" : "failed"} by the user`,
       data: updatedLog,
     };
   }
+
   if (status === "success") {
     const idToken = await getBkashIdToken();
+
+    if (!idToken) {
+      throw new AppError(
+        httpStatus.BAD_GATEWAY,
+        "No Bkash Access Token Found!",
+      );
+    }
     const bkashResponse = await fetch(
       `${config.bkash_base_url}/tokenized/checkout/execute`,
       {
@@ -145,7 +308,7 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
           "X-APP-Key": config.bkash_app_key as string,
         },
         body: JSON.stringify({ paymentID }),
-      }
+      },
     );
     const bkashData = await bkashResponse.json();
     if (bkashData && bkashData.statusCode === "0000") {
@@ -165,7 +328,7 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
       });
       throw new AppError(
         httpStatus.BAD_REQUEST,
-        bkashData.statusMessage || "Payment execution failed"
+        bkashData.statusMessage || "Payment execution failed",
       );
     }
   }
@@ -174,4 +337,6 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
 
 export const paymentService = {
   initiateBkashPayment,
+  executeBkashPayment,
+  handleBkashCallback,
 };
