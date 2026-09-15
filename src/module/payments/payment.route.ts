@@ -22,6 +22,12 @@ router.post(
 
 router.get("/bkash/callback", paymentController.handleBkashCallback);
 
+router.post(
+  "/bkash/refund",
+  auth(Role.ADMIN),
+  paymentController.refundBkashPayment
+);
+
 
 router.get(
   "/history/:organizationId",

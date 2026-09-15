@@ -53,6 +53,19 @@ const handleBkashCallback = catchAsync(
   }
 );
 
+const refundBkashPayment = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const result = await paymentService.refundBkashPayment(userId as string, req.body);
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+  }
+);
+
 
 const getOrganizationPaymentHistory = catchAsync(
   async (req: Request, res: Response) => {
@@ -76,5 +89,6 @@ export const paymentController = {
   initiateBkashPayment,
   executeBkashPayment,
   handleBkashCallback,
-  getOrganizationPaymentHistory
+  getOrganizationPaymentHistory,
+  refundBkashPayment
 };

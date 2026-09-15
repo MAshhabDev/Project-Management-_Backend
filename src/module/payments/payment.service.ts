@@ -2,7 +2,10 @@ import { getBkashIdToken } from "../../lib/bkash";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import httpStatus from "http-status";
-import { IBkashInitiatePayload } from "./payment.interface";
+import {
+  IBkashInitiatePayload,
+  type IRefundPayload,
+} from "./payment.interface";
 import config from "../../config";
 import { PaymentStatus } from "../../../generated/prisma/enums";
 import PDFDocument from "pdfkit";
@@ -353,6 +356,101 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
   throw new AppError(httpStatus.BAD_REQUEST, "Invalid payment status received");
 };
 
+const refundBkashPayment = async (userId: string, payload: IRefundPayload) => {
+  const { paymentId, amount, reason } = payload;
+  if (!paymentId || !amount) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Payment ID and refund amount are required",
+    );
+  }
+
+  const paymentRecord = await prisma.payment.findUnique({
+    where: {
+      id: paymentId,
+    },
+    include: {
+      organization: { include: { members: true } },
+    },
+  });
+  if (!paymentRecord) {
+    throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+  }
+
+  if (paymentRecord.status !== PaymentStatus.SUCCESS) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Cannot refund a payment with status: ${paymentRecord.status}`,
+    );
+  }
+
+  const isMember = paymentRecord.organization.members.some(
+    (m) => m.userId === userId && m.role === "ADMIN",
+  );
+  if (!isMember) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Access denied. Only organization ADMIN can request a refund",
+    );
+  }
+
+  const idToken = await getBkashIdToken();
+  if (!idToken) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      "Failed to retrieve bKash Token",
+    );
+  }
+
+  const bkashResponse = await fetch(
+    `${config.bkash_base_url}/tokenized/checkout/payment/refund`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: idToken,
+        "X-APP-Key": config.bkash_app_key as string,
+      },
+      body: JSON.stringify({
+        paymentID: paymentRecord.transactionId,
+        trxID: paymentRecord.transactionId,
+        amount: String(amount),
+        sku: "SaaS Subscription Refund",
+        reason: reason || "User requested subscription refund",
+      }),
+    },
+  );
+  const bkashData = await bkashResponse.json();
+
+  if (bkashData && bkashData.statusCode === "0000") {
+    const updatedPayment = await prisma.payment.update({
+      where: {
+        id: paymentRecord.id,
+      },
+      data: {
+        status: PaymentStatus.FAILED,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Payment refunded successfully via bKash",
+      data: {
+        refundTrxID: bkashData.refundTrxID,
+        amount: bkashData.amount,
+        completedTime: bkashData.completedTime,
+        payment: updatedPayment,
+      },
+    };
+  } else {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      bkashData.statusMessage || "bKash Refund Request Failed",
+    );
+  }
+};
+
 const getOrganizationPaymentHistory = async (
   userId: string,
   organizationId: string,
@@ -420,4 +518,5 @@ export const paymentService = {
   executeBkashPayment,
   handleBkashCallback,
   getOrganizationPaymentHistory,
+  refundBkashPayment
 };
