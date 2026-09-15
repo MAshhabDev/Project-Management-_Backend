@@ -17,9 +17,15 @@ router.post(
 router.post(
   "/bkash/execute",
   auth(Role.ADMIN, Role.MANAGER, Role.MEMBER),
-  paymentController.executeBkashPaymentController
+  paymentController.executeBkashPayment
 );
 
-router.get("/bkash/callback", paymentController.handleBkashCallbackController);
+router.get("/bkash/callback", paymentController.handleBkashCallback);
 
+
+router.get(
+  "/history/:organizationId",
+  auth(Role.ADMIN, Role.MANAGER, Role.MEMBER),
+  paymentController.getOrganizationPaymentHistory
+);
 export const paymentRoutes = router;

@@ -21,7 +21,7 @@ const initiateBkashPayment = catchAsync(async (req: Request, res: Response) => {
 });
 
 
-const executeBkashPaymentController = catchAsync(
+const executeBkashPayment = catchAsync(
   async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const { paymentID } = req.body;
@@ -37,7 +37,7 @@ const executeBkashPaymentController = catchAsync(
 
 
 
-const handleBkashCallbackController = catchAsync(
+const handleBkashCallback = catchAsync(
   async (req: Request, res: Response) => {
     const { paymentID, status } = req.query;
     const result = await paymentService.handleBkashCallback(
@@ -53,8 +53,28 @@ const handleBkashCallbackController = catchAsync(
   }
 );
 
+
+const getOrganizationPaymentHistory = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { organizationId } = req.params;
+    const result = await paymentService.getOrganizationPaymentHistory(
+      userId as string,
+      organizationId as string,
+      req.query
+    );
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Payment history fetched successfully",
+      meta: result.meta,
+      data: result.data,
+    });
+  }
+);
 export const paymentController = {
   initiateBkashPayment,
-  executeBkashPaymentController,
-  handleBkashCallbackController
+  executeBkashPayment,
+  handleBkashCallback,
+  getOrganizationPaymentHistory
 };

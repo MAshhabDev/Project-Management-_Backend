@@ -26,7 +26,6 @@ const sendInvoiceEmail = async (
     pdfDocument.on("data", (chunk: Buffer) => pdfChunks.push(chunk));
 
     const pdfReadyPromise = new Promise<Buffer>((resolve) => {
-      
       pdfDocument.on("end", () => resolve(Buffer.concat(pdfChunks)));
     });
 
@@ -79,8 +78,12 @@ const initiateBkashPayment = async (
   const { organizationId, amount } = payload;
 
   const org = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    include: { members: true },
+    where: {
+      id: organizationId,
+    },
+    include: {
+      members: true,
+    },
   });
 
   if (!org) {
@@ -177,8 +180,11 @@ const executeBkashPayment = async (userId: string, paymentID: string) => {
   if (!paymentID) {
     throw new AppError(httpStatus.BAD_REQUEST, "Payment ID is required");
   }
+
   const paymentLog = await prisma.payment.findUnique({
-    where: { transactionId: paymentID },
+    where: {
+      transactionId: paymentID,
+    },
   });
 
   if (!paymentLog) {
@@ -229,7 +235,11 @@ const executeBkashPayment = async (userId: string, paymentID: string) => {
       include: { organization: true },
     });
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
 
     if (user?.email && updatedLog.organization) {
       sendInvoiceEmail(user.email, {
@@ -248,9 +258,14 @@ const executeBkashPayment = async (userId: string, paymentID: string) => {
     };
   } else {
     await prisma.payment.update({
-      where: { id: paymentLog.id },
-      data: { status: PaymentStatus.FAILED },
+      where: {
+        id: paymentLog.id,
+      },
+      data: {
+        status: PaymentStatus.FAILED,
+      },
     });
+
     throw new AppError(
       httpStatus.BAD_REQUEST,
       bkashData.statusMessage || "bKash Payment execution failed",
@@ -265,6 +280,7 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
       "Invalid callback parameters. paymentID and status are required.",
     );
   }
+
   const paymentLog = await prisma.payment.findUnique({
     where: { transactionId: paymentID },
   });
@@ -275,6 +291,7 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
       "Payment transaction record not found",
     );
   }
+
   if (status === "cancel" || status === "failure") {
     const updatedLog = await prisma.payment.update({
       where: { id: paymentLog.id },
@@ -316,6 +333,7 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
         where: { id: paymentLog.id },
         data: { status: PaymentStatus.SUCCESS },
       });
+
       return {
         success: true,
         message: "Payment executed and verified successfully",
@@ -335,8 +353,71 @@ const handleBkashCallback = async (paymentID: string, status: string) => {
   throw new AppError(httpStatus.BAD_REQUEST, "Invalid payment status received");
 };
 
+const getOrganizationPaymentHistory = async (
+  userId: string,
+  organizationId: string,
+  query: Record<string, any>,
+) => {
+  const org = await prisma.organization.findUnique({
+    where: {
+      id: organizationId,
+    },
+    include: {
+      members: true,
+    },
+  });
+
+  if (!org) {
+    throw new AppError(httpStatus.NOT_FOUND, "Organization not found");
+  }
+
+  const isMember = org.members.some((m) => m.userId === userId);
+
+  if (!isMember) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Access denied. You are not a member of this organization",
+    );
+  }
+
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const status = query.status as PaymentStatus | undefined;
+  const whereCondition: any = { organizationId };
+
+  if (status) {
+    whereCondition.status = status;
+  }
+
+  const payments = await prisma.payment.findMany({
+    where: whereCondition,
+    take: limit,
+    skip,
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      organization: { select: { id: true, name: true, slug: true } },
+    },
+  });
+
+  const total = await prisma.payment.count({ where: whereCondition });
+
+  return {
+    data: payments,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
 export const paymentService = {
   initiateBkashPayment,
   executeBkashPayment,
   handleBkashCallback,
+  getOrganizationPaymentHistory,
 };
