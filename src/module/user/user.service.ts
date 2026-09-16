@@ -1,13 +1,11 @@
 import type { UploadApiResponse } from "cloudinary";
+import { cloudinary } from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import httpStatus from "http-status";
-import { cloudinary } from "../../lib/cloudinary";
 
 export interface IUpdateUserPayload {
   name?: string;
-  contactNumber?: string;
-  bio?: string;
 }
 
 const updateProfile = async (
@@ -16,7 +14,7 @@ const updateProfile = async (
   file?: Express.Multer.File
 ) => {
 
-    const currentUser = await prisma.user.findUnique({
+  const currentUser = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -31,7 +29,6 @@ const updateProfile = async (
 
   let imageUrl = currentUser.imageUrl;
   let imagePublicId = currentUser.imagePublicId;
-
 
   if (file && file.buffer) {
     const cloudinaryResult = await new Promise<UploadApiResponse>(
@@ -82,8 +79,6 @@ const updateProfile = async (
     where: { id: userId },
     data: {
       ...(payload.name && { name: payload.name }),
-      ...(payload.contactNumber && { contactNumber: payload.contactNumber }),
-      ...(payload.bio && { bio: payload.bio }),
       ...(imageUrl && { imageUrl }),
       ...(imagePublicId && { imagePublicId }),
     },
@@ -92,8 +87,6 @@ const updateProfile = async (
       name: true,
       email: true,
       imageUrl: true,
-      contactNumber: true,
-      bio: true,
       role: true,
       createdAt: true,
       updatedAt: true,

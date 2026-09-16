@@ -76,7 +76,7 @@ const createUser = async (payload: ICreate) => {
 
   const templatePath = path.join(
     process.cwd(),
-    "src/app/templates/register-user-otp.ejs",
+    "src/templates/register-user-otp.ejs",
   );
 
   const templateData = {
@@ -157,7 +157,7 @@ const verifyEmail = async (payload: IVerifyEmailPayload) => {
 
   const templatePath = path.join(
     process.cwd(),
-    "src/app/templates/welcome-email.ejs",
+    "src/templates/welcome-email.ejs",
   );
 
   const templateData = {
@@ -374,7 +374,7 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 
       const templatePath = path.join(
         process.cwd(),
-        "src/app/templates/welcome-email.ejs",
+        "src/templates/welcome-email.ejs",
       );
 
       const templateData = {
@@ -473,7 +473,7 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
 
   const templatePath = path.join(
     process.cwd(),
-    "src/app/templates/forgot-password.ejs",
+    "src/templates/forgot-password.ejs",
   );
 
   const templateData = {
@@ -552,7 +552,7 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 
   const templatePath = path.join(
     process.cwd(),
-    "src/app/templates/reset-password.ejs",
+    "src/templates/reset-password.ejs",
   );
 
   const templateData = {

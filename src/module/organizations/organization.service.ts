@@ -2,7 +2,10 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import httpStatus from "http-status";
 import { Role, UserStatus } from "../../../generated/prisma/enums";
-import type { ICreateOrganization, IInviteMember } from "./organization.interface";
+import type {
+  ICreateOrganization,
+  IInviteMember,
+} from "./organization.interface";
 
 const createOrganization = async (
   userId: string,
@@ -53,7 +56,14 @@ const createOrganization = async (
       data: {
         organizationId: org.id,
         userId: userId,
-        roleInOrg: Role.MANAGER,
+        role: Role.MANAGER,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        role: Role.MANAGER,
       },
     });
 
@@ -74,12 +84,22 @@ const getMyOrganizations = async (userId: string) => {
     },
     include: {
       owner: {
-        select: { id: true, name: true, email: true, avatar: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          imageUrl: true,
+        },
       },
       members: {
         include: {
           user: {
-            select: { id: true, name: true, email: true, avatar: true },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              imageUrl: true,
+            },
           },
         },
       },
@@ -139,7 +159,8 @@ const inviteMember = async (
   const { email, role } = payload;
 
   const org = await prisma.organization.findUnique({
-    where: { id: orgId },
+    where: { 
+      id: orgId },
     include: { members: true },
   });
 
@@ -151,8 +172,7 @@ const inviteMember = async (
   const requesterMember = org.members.find((m) => m.userId === requesterUserId);
   if (
     !requesterMember ||
-    (requesterMember.role!== Role.MANAGER &&
-      org.ownerId !== requesterUserId)
+    (requesterMember.role !== Role.MANAGER && org.ownerId !== requesterUserId)
   ) {
     throw new AppError(
       httpStatus.FORBIDDEN,
@@ -187,11 +207,11 @@ const inviteMember = async (
     data: {
       organizationId: orgId,
       userId: userToInvite.id,
-      roleInOrg: role || Role.MEMBER,
+      role: role || Role.MEMBER,
     },
     include: {
       user: {
-        select: { id: true, name: true, email: true, avatar: true },
+        select: { id: true, name: true, email: true, imageUrl: true },
       },
     },
   });

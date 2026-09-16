@@ -88,7 +88,6 @@ const createTask = async (creatorUserId: string, payload: ICreateTask) => {
     await tx.activityLog.create({
       data: {
         organizationId: project.organizationId,
-        taskId: task.id,
         userId: creatorUserId,
         action: "TASK_CREATED",
         details: `Task '${title}' created in ${column.title}`,
@@ -155,7 +154,6 @@ const updateTaskStatus = async (
     await tx.activityLog.create({
       data: {
         organizationId: task.project.organizationId,
-        taskId: task.id,
         userId: userId,
         action: "TASK_STATUS_UPDATED",
         details: `Moved task '${task.title}' status from ${oldStatus} to ${status} (Column: ${targetColumn.title})`,
@@ -216,7 +214,6 @@ const softDeleteTask = async (taskId: string, userId: string) => {
     await tx.activityLog.create({
       data: {
         organizationId: task.project.organizationId,
-        taskId: task.id,
         userId: userId,
         action: "TASK_DELETED",
         details: `Soft deleted task '${task.title}'`,
@@ -271,7 +268,7 @@ const addComment = async (
     },
     include: {
       user: {
-        select: { id: true, name: true, email: true, avatar: true },
+        select: { id: true, name: true, email: true, imageUrl: true },
       },
     },
   });
@@ -313,7 +310,7 @@ const getTaskActivityLogs = async (taskId: string, userId: string) => {
     orderBy: { createdAt: "desc" },
     include: {
       user: {
-        select: { id: true, name: true, email: true, avatar: true },
+        select: { id: true, name: true, email: true, imageUrl: true },
       },
     },
   });

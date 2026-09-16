@@ -120,7 +120,7 @@ const getAllProjects = async (userId: string, query: IProjectFilterQuery) => {
         select: { id: true, name: true, slug: true },
       },
       user: {
-        select: { id: true, name: true, email: true, avatar: true },
+        select: { id: true, name: true, email: true, imageUrl: true },
       },
       boards: {
         include: {

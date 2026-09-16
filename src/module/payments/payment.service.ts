@@ -113,7 +113,7 @@ const initiateBkashPayment = async (
 
   try {
     const bkashResponse = await fetch(
-      `${config.bkash_base_url}/tokenized/bKash/checkout/payment/create`,
+      `${config.bkash_base_url}/tokenized/checkout/create`,
       {
         method: "POST",
         headers: {
