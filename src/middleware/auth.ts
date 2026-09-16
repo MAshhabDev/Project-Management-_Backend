@@ -4,7 +4,7 @@ import { Role } from "../../generated/prisma/enums";
 import { prisma } from "../lib/prisma";
 import { catchAsync } from "../utils/catchAsync";
 import { jwtUtils } from "../utils/jwt";
-import { config } from "../config";
+import config from "../config";
 
 declare global {
   namespace Express {

@@ -1,0 +1,472 @@
+{
+	"info": {
+		"_postman_id": "b7a6-project-management-saas-collection",
+		"name": "Project Management SaaS API Collection",
+		"description": "Complete 20+ Production Ready APIs for Project Management SaaS Backend Assignment",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "organizationId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "projectId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "taskId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Authentication & Profile",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register"]
+						}
+					}
+				},
+				{
+					"name": "Verify Email OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "verify-email"]
+						}
+					}
+				},
+				{
+					"name": "Login User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@gmail.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/user/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "me"]
+						}
+					}
+				},
+				{
+					"name": "Update Profile (with Multer Image)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "name", "value": "John Updated", "type": "text" },
+								{ "key": "contactNumber", "value": "01700000000", "type": "text" },
+								{ "key": "bio", "value": "Senior Fullstack Developer", "type": "text" }
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/update-profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "update-profile"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Organization & Multi-Tenancy",
+			"item": [
+				{
+					"name": "Create Organization",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"TechCorp SaaS\",\n  \"slug\": \"techcorp-saas\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/organizations",
+							"host": ["{{baseUrl}}"],
+							"path": ["organizations"]
+						}
+					}
+				},
+				{
+					"name": "Get My Organizations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/organizations",
+							"host": ["{{baseUrl}}"],
+							"path": ["organizations"]
+						}
+					}
+				},
+				{
+					"name": "Invite Member to Org",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"organizationId\": \"{{organizationId}}\",\n  \"email\": \"member@gmail.com\",\n  \"role\": \"MEMBER\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/organizations/invite",
+							"host": ["{{baseUrl}}"],
+							"path": ["organizations", "invite"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Team Management",
+			"item": [
+				{
+					"name": "Create Team",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Backend Engineering Team\",\n  \"organizationId\": \"{{organizationId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/teams",
+							"host": ["{{baseUrl}}"],
+							"path": ["teams"]
+						}
+					}
+				},
+				{
+					"name": "Add Team Member",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"teamId\": \"team_id_here\",\n  \"userId\": \"user_id_here\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/teams/add-member",
+							"host": ["{{baseUrl}}"],
+							"path": ["teams", "add-member"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Project Management",
+			"item": [
+				{
+					"name": "Create Project (Auto Board & Columns)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"AI Integration Engine\",\n  \"description\": \"Build AI workflow endpoints\",\n  \"organizationId\": \"{{organizationId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects"]
+						}
+					}
+				},
+				{
+					"name": "Get All Projects (Search & Filter)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/projects?page=1&limit=10&searchTerm=AI",
+							"host": ["{{baseUrl}}"],
+							"path": ["projects"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" },
+								{ "key": "searchTerm", "value": "AI" }
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Task & Kanban Workflow",
+			"item": [
+				{
+					"name": "Create Task",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Implement bKash Payment API\",\n  \"description\": \"Integrate tokenized checkout\",\n  \"projectId\": \"{{projectId}}\",\n  \"columnId\": \"column_id_here\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/tasks",
+							"host": ["{{baseUrl}}"],
+							"path": ["tasks"]
+						}
+					}
+				},
+				{
+					"name": "Update Task Status (Drag & Drop Move)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"columnId\": \"new_column_id_here\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/tasks/{{taskId}}/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["tasks", "{{taskId}}", "status"]
+						}
+					}
+				},
+				{
+					"name": "Add Comment to Task",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"Task looks good! Ready for review.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/tasks/{{taskId}}/comments",
+							"host": ["{{baseUrl}}"],
+							"path": ["tasks", "{{taskId}}", "comments"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. bKash Payment Integration",
+			"item": [
+				{
+					"name": "Initiate bKash Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"organizationId\": \"{{organizationId}}\",\n  \"amount\": 1500\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payments/bkash/initiate",
+							"host": ["{{baseUrl}}"],
+							"path": ["payments", "bkash", "initiate"]
+						}
+					}
+				},
+				{
+					"name": "Execute bKash Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"paymentID\": \"TRX_BKASH_PAYMENT_ID_HERE\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payments/bkash/execute",
+							"host": ["{{baseUrl}}"],
+							"path": ["payments", "bkash", "execute"]
+						}
+					}
+				},
+				{
+					"name": "bKash Callback Endpoint",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/payments/bkash/callback?paymentID=TRX_001&status=success",
+							"host": ["{{baseUrl}}"],
+							"path": ["payments", "bkash", "callback"],
+							"query": [
+								{ "key": "paymentID", "value": "TRX_001" },
+								{ "key": "status", "value": "success" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Organization Payment History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/payments/history/{{organizationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["payments", "history", "{{organizationId}}"]
+						}
+					}
+				},
+				{
+					"name": "Refund bKash Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"paymentId\": \"db_payment_id_here\",\n  \"amount\": 1500,\n  \"reason\": \"Duplicate Payment Refund\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/payments/bkash/refund",
+							"host": ["{{baseUrl}}"],
+							"path": ["payments", "bkash", "refund"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Admin Operations",
+			"item": [
+				{
+					"name": "Get Dashboard Stats",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/dashboard-stats",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "dashboard-stats"]
+						}
+					}
+				},
+				{
+					"name": "Toggle User Status (Block / Active)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{accessToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"BLOCKED\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/toggle-user-status/target_user_id_here",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "toggle-user-status", "target_user_id_here"]
+						}
+					}
+				}
+			]
+		}
+	]
+}
