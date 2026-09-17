@@ -133,4 +133,4 @@ npm run dev
 ---
 
 ## 📄 License
-Distributed under the **ISC License**. Built with ❤️ for Assignment #8.
+Distributed under the **ISC License**. Built with ❤️.
