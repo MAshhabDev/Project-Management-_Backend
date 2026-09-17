@@ -5,27 +5,31 @@ import { prisma } from "./lib/prisma";
 import { redisClient } from "./lib/redis";
 import { seedAll } from "./utils/seed";
 
-const PORT = config.port;
+const PORT = config.port || 5000;
 
 const main = async () => {
   try {
     await prisma.$connect();
 
-    // Connect to Redis
-    await redisClient.connect();
-    console.log("Redis Connected Successfully!");
+    if (!redisClient.isOpen) {
+      await redisClient.connect();
+      console.log("Redis Connected Successfully!");
+    }
 
     await seedAll();
 
-    app.listen(PORT, () => {
-      console.log(`Server is running on ${PORT}`);
-
-      initPaymentCron();
-    });
+    if (process.env.NODE_ENV !== "production") {
+      app.listen(PORT, () => {
+        console.log(`Server is running on ${PORT}`);
+        initPaymentCron();
+      });
+    }
   } catch (error) {
     console.error("Error starting the server:", error);
-    process.exit(1);
   }
 };
 
 main();
+
+export default app;
+

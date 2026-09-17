@@ -8,7 +8,7 @@
   "main": "server.ts",
   "scripts": {
       "dev": "tsx watch src/server.ts",
-    "build": "tsup",
+    "build": "prisma generate && tsup",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
