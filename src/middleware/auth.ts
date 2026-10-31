@@ -5,6 +5,9 @@ import { prisma } from "../lib/prisma";
 import { catchAsync } from "../utils/catchAsync";
 import { jwtUtils } from "../utils/jwt";
 import config from "../config";
+import { AppError } from "../utils/AppError";
+import httpStatus from "http-status";
+
 
 declare global {
   namespace Express {
@@ -53,8 +56,7 @@ export const auth = (...requiredRoles: Role[]) => {
       where: {
         id: userId,
         email,
-        name,
-        role,
+      
       },
     });
 
@@ -64,6 +66,13 @@ export const auth = (...requiredRoles: Role[]) => {
 
     if (user.status === "BLOCKED") {
       throw new Error("Your account has been blocked. Please contact support.");
+    }
+
+      if (requiredRoles.length && !requiredRoles.includes(user.role)) {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        "Forbidden. You don't have permission to access this resource.",
+      );
     }
 
     req.user = {

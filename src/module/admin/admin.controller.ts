@@ -27,7 +27,7 @@ const toggleUserBan = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: `User ${req.body.isBanned ? "banned" : "unbanned"} successfully`,
+    message: `User status updated to ${req.body.status} successfully`,
     data: result,
   });
 });

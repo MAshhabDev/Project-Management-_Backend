@@ -124,7 +124,7 @@ const getTeamById = async (teamId: string, userId: string) => {
               id: true,
               name: true,
               email: true,
-              avatar: true,
+              imageUrl: true,
               role: true,
             },
           },

@@ -219,6 +219,13 @@ const logInUser = async (payload: ILogin) => {
     throw new AppError(httpStatus.FORBIDDEN, "User is deleted");
   }
 
+    if (user.status === UserStatus.BLOCKED) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account has been blocked. Please contact support."
+    );
+  }
+
   if (user.password === null && user.googleId !== null) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -260,11 +267,11 @@ const refreshTokenIntoDb = async (refreshToken: string) => {
     throw new Error(verified.error);
   }
 
-  const { id } = verified.data as JwtPayload;
+  const { userId } = verified.data as JwtPayload;
 
   const user = await prisma.user.findUniqueOrThrow({
     where: {
-      id,
+      id: userId,
     },
   });
   if (user.status === "BLOCKED") {
@@ -272,7 +279,7 @@ const refreshTokenIntoDb = async (refreshToken: string) => {
   }
 
   const jwtPayload = {
-    id,
+    userId:user.id,
     name: user.name,
     email: user.email,
     role: user.role,
@@ -281,9 +288,8 @@ const refreshTokenIntoDb = async (refreshToken: string) => {
   const accessToken = jwtUtils.createToken(
     jwtPayload,
     config.jwt_access_secret,
-    {
-      expiresIn: config.jwt_access_expires_in,
-    } as SignOptions,
+    
+    config.jwt_access_expires_in as SignOptions,
   );
 
   return { accessToken };

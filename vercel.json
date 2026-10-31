@@ -11,11 +11,5 @@
       "src": "/(.*)",
       "dest": "dist/server.js"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/v1/payments/bkash/callback",
-      "schedule": "0 0 * * *"
-    }
   ]
 }

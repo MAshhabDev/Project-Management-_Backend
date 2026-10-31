@@ -3,8 +3,16 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import httpStatus from "http-status";
 import { authService } from "./auth.services";
+import config from "../../config";
 
 // 1. Create User (Registration OTP Request)
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: config.node_env === "production",
+  sameSite:
+    config.node_env === "production" ? ("none" as const) : ("lax" as const),
+};
 const createUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     await authService.createUser(req.body);
@@ -25,16 +33,13 @@ const verifyEmail = catchAsync(
 
     // Save tokens in cookies
     res.cookie("accessToken", result.accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+      ...cookieOptions,
       maxAge: 1000 * 60 * 60 * 24,
     });
 
     res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+      ...cookieOptions,
+
       maxAge: 1000 * 60 * 60 * 168,
     });
 
@@ -54,16 +59,13 @@ const logInUser = catchAsync(
 
     // Save tokens in cookies
     res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+      ...cookieOptions,
       maxAge: 1000 * 60 * 60 * 24,
     });
 
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+           ...cookieOptions,
+
       maxAge: 1000 * 60 * 60 * 168,
     });
 
@@ -86,9 +88,8 @@ const refreshToken = catchAsync(
     const { accessToken } = await authService.refreshTokenIntoDb(token);
 
     res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+          ...cookieOptions,
+
       maxAge: 1000 * 60 * 60 * 24,
     });
 
@@ -125,16 +126,14 @@ const googleLogin = catchAsync(
     const result = await authService.googleLogin(req.body);
 
     res.cookie("accessToken", result.accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+            ...cookieOptions,
+
       maxAge: 1000 * 60 * 60 * 24,
     });
 
     res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+            ...cookieOptions,
+
       maxAge: 1000 * 60 * 60 * 168,
     });
 

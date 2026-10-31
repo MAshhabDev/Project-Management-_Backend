@@ -114,7 +114,7 @@ const getOrganizationById = async (orgId: string, userId: string) => {
     where: { id: orgId },
     include: {
       owner: {
-        select: { id: true, name: true, email: true, avatar: true },
+        select: { id: true, name: true, email: true, imageUrl: true },
       },
       members: {
         include: {
@@ -123,7 +123,7 @@ const getOrganizationById = async (orgId: string, userId: string) => {
               id: true,
               name: true,
               email: true,
-              avatar: true,
+              imageUrl: true,
               role: true,
             },
           },
@@ -159,8 +159,9 @@ const inviteMember = async (
   const { email, role } = payload;
 
   const org = await prisma.organization.findUnique({
-    where: { 
-      id: orgId },
+    where: {
+      id: orgId,
+    },
     include: { members: true },
   });
 

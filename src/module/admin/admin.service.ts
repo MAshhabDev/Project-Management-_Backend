@@ -81,7 +81,6 @@ const updateUserStatus = async (
       name: true,
       email: true,
       role: true,
-      isBanned: true,
       status: true,
       updatedAt: true,
     },
