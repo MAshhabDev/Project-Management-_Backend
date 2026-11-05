@@ -3,6 +3,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import httpStatus from "http-status";
 import { paymentService } from "./payment.service";
+import config from "../../config";
 
 const initiateBkashPayment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -44,6 +45,12 @@ const handleBkashCallback = catchAsync(
       paymentID as string,
       status as string
     );
+
+    const frontendBase = config.frontend_url ? config.frontend_url.replace(/\/$/, "") : null;
+    if (frontendBase && (status === "success" || status === "cancel" || status === "failure")) {
+      return res.redirect(`${frontendBase}/pricing?paymentStatus=${status}&paymentID=${paymentID}`);
+    }
+
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: result.success,

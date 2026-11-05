@@ -125,7 +125,7 @@ const initiateBkashPayment = async (
         body: JSON.stringify({
           mode: "0011",
           payerReference: org.slug,
-          callbackURL: `${config.back_url}/api/v1/payments/bkash/callback`,
+          callbackURL: `${(config.back_url || "").replace(/\/api\/v1\/?$/, "")}/api/v1/payments/bkash/callback`,
           amount: String(amount),
           currency: "BDT",
           intent: "sale",

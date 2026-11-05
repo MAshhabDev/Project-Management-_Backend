@@ -45,6 +45,7 @@ app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/api/v1/payments", paymentRoutes);
 
 app.get("/", async (req: Request, res: Response) => {
 	res.status(httpStatus.OK).json({
